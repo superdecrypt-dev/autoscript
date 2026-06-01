@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR="${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR:-/etc/autoscript/package-ownership}"
+
 tools_external_installer_require_cmd() {
   local installer_cmd="$1"
   local label="$2"
@@ -212,6 +214,7 @@ xray-speed.service
 xray-xhttp3-udphop.service
 xray.service
 xray@.service
+zivpn.service
 warp-svc.service
 nginx.service
 dropbear.service
@@ -377,6 +380,42 @@ autoscript_uninstall_stop_orphan_processes() {
   fi
 }
 
+autoscript_uninstall_pkg_installed() {
+  local pkg="${1:-}"
+  [[ -n "${pkg}" ]] || return 1
+  dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "install ok installed"
+}
+
+autoscript_uninstall_package_owned() {
+  local pkg="${1:-}"
+  [[ -n "${pkg}" ]] || return 1
+  [[ -f "${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR}/${pkg}.owned" ]]
+}
+
+autoscript_uninstall_snapd_safe_to_purge() {
+  local snap_name=""
+
+  autoscript_uninstall_package_owned snapd || return 1
+  if ! have_cmd snap; then
+    return 0
+  fi
+  snap list >/dev/null 2>&1 || return 1
+
+  while IFS= read -r snap_name; do
+    [[ -n "${snap_name}" ]] || continue
+    case "${snap_name}" in
+      Name|bare|core|core[0-9]*|snapd|speedtest)
+        continue
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done < <(snap list 2>/dev/null | awk 'NR > 1 {print $1}')
+
+  return 0
+}
+
 autoscript_uninstall_purge_packages() {
   local -a purge_pkgs=(
     nginx
@@ -394,20 +433,26 @@ autoscript_uninstall_purge_packages() {
     rclone
     fail2ban
     chrony
-    snapd
   )
   local -a installed=()
   local pkg=""
 
   export DEBIAN_FRONTEND=noninteractive
+  if have_cmd snap; then
+    snap remove speedtest >/dev/null 2>&1 || true
+  fi
+
   for pkg in "${purge_pkgs[@]}"; do
-    if dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "install ok installed"; then
+    if autoscript_uninstall_pkg_installed "${pkg}"; then
       installed+=("${pkg}")
     fi
   done
 
-  if have_cmd snap; then
-    snap remove speedtest >/dev/null 2>&1 || true
+  if autoscript_uninstall_package_owned nodejs && autoscript_uninstall_pkg_installed nodejs; then
+    installed+=("nodejs")
+  fi
+  if autoscript_uninstall_snapd_safe_to_purge && autoscript_uninstall_pkg_installed snapd; then
+    installed+=("snapd")
   fi
 
   if (( ${#installed[@]} > 0 )); then
@@ -437,6 +482,7 @@ autoscript_uninstall_warning_screen() {
   if [[ "${purge_packages}" == "true" ]]; then
     echo
     warn "Mode purge aktif: package add-on autoscript seperti nginx/dropbear/stunnel/cloudflare-warp akan dipurge."
+    echo "Node.js/snapd hanya dipurge bila ditandai dipasang oleh autoscript dan aman dibersihkan."
   fi
   if [[ -n "${domain}" ]]; then
     echo
@@ -506,10 +552,12 @@ autoscript_full_hard_uninstall_apply() {
     "/usr/local/bin/ssh-warp-sync"
     "/usr/local/bin/xray-warp-sync"
     "/usr/local/bin/xray-xhttp3-udphop-rules"
+    "/usr/local/bin/zivpn-password-sync"
     "/usr/local/bin/badvpn-udpgw-launcher"
     "/usr/local/bin/badvpn-udpgw"
     "/usr/local/bin/wgcf"
     "/usr/local/bin/wireproxy"
+    "/usr/local/bin/zivpn"
     "/etc/logrotate.d/xray-nginx"
     "/var/lib/systemd/timers/stamp-autoscript-license-enforcer.timer"
     "/var/lib/systemd/timers/stamp-bot-telegram-monitor.timer"
@@ -559,6 +607,8 @@ autoscript_full_hard_uninstall_apply() {
     "${WGCF_DIR:-/etc/wgcf}"
     "${WIREGUARD_DIR:-/etc/wireguard}"
     "/var/lib/cloudflare-warp"
+    "/etc/zivpn"
+    "/var/log/zivpn"
     "/root/.acme.sh"
     "/var/lib/autoscript-backup"
     "/var/lib/autoscript-run"
@@ -572,14 +622,18 @@ autoscript_full_hard_uninstall_apply() {
     autoscript_uninstall_remove_unit_file "${unit}"
   done < <(autoscript_uninstall_managed_units)
 
-  for path in "${remove_paths[@]}"; do
-    [[ -n "${path}" ]] || continue
-    autoscript_uninstall_rm_rf "${path}" "${path}" || failures=$((failures + 1))
-  done
-
   for path in "${remove_files[@]}"; do
     [[ -n "${path}" ]] || continue
     autoscript_uninstall_rm_f "${path}" || failures=$((failures + 1))
+  done
+
+  if [[ "${purge_packages}" == "true" ]]; then
+    autoscript_uninstall_purge_packages
+  fi
+
+  for path in "${remove_paths[@]}"; do
+    [[ -n "${path}" ]] || continue
+    autoscript_uninstall_rm_rf "${path}" "${path}" || failures=$((failures + 1))
   done
 
   # Pastikan subtree SSH tidak tersisa walaupun root account/quota sempat
@@ -590,10 +644,6 @@ autoscript_full_hard_uninstall_apply() {
       autoscript_uninstall_rm_rf "${path}" "${path}" || failures=$((failures + 1))
     fi
   done
-
-  if [[ "${purge_packages}" == "true" ]]; then
-    autoscript_uninstall_purge_packages
-  fi
 
   if [[ -n "${domain}" ]]; then
     autoscript_uninstall_rm_rf "/root/.acme.sh/${domain}" "acme domain ${domain}" || failures=$((failures + 1))

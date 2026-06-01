@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 # Bootstrap/install groundwork module for setup runtime.
 
+AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR="${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR:-/etc/autoscript/package-ownership}"
+
+autoscript_package_installed() {
+  local pkg="${1:-}"
+  [[ -n "${pkg}" ]] || return 1
+  dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "install ok installed"
+}
+
+autoscript_package_mark_owned() {
+  local pkg="${1:-}"
+  [[ -n "${pkg}" ]] || return 0
+  install -d -m 0755 "${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR}" >/dev/null 2>&1 || return 0
+  : > "${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR}/${pkg}.owned" || return 0
+  chmod 0644 "${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR}/${pkg}.owned" >/dev/null 2>&1 || true
+}
+
 check_os() {
   [[ -f /etc/os-release ]] || die "Tidak menemukan /etc/os-release"
   # shellcheck disable=SC1091
@@ -141,6 +157,8 @@ node_version_satisfies_portal_build() {
 }
 
 ensure_nodejs_runtime_for_account_portal() {
+  local nodejs_was_installed="false"
+
   if node_version_satisfies_portal_build; then
     ok "Node.js siap untuk build portal React: $(node -v) / npm $(npm -v)"
     return 0
@@ -149,6 +167,9 @@ ensure_nodejs_runtime_for_account_portal() {
   ok "Menyiapkan Node.js untuk build portal React..."
   export DEBIAN_FRONTEND=noninteractive
   ensure_dpkg_consistent
+  if autoscript_package_installed nodejs; then
+    nodejs_was_installed="true"
+  fi
   apt_get_with_lock_retry install -y ca-certificates curl gpg
 
   install -d -m 0755 /etc/apt/keyrings
@@ -165,6 +186,9 @@ EOF
 
   apt_get_with_lock_retry update -y
   apt_get_with_lock_retry install -y nodejs
+  if [[ "${nodejs_was_installed}" != "true" ]]; then
+    autoscript_package_mark_owned nodejs
+  fi
   hash -r || true
 
   node_version_satisfies_portal_build \
@@ -202,6 +226,7 @@ install_extra_deps() {
 
 install_speedtest_snap() {
   ok "Install speedtest via snap..."
+  local snapd_was_installed="false"
 
   if command -v speedtest >/dev/null 2>&1; then
     ok "speedtest sudah tersedia: $(command -v speedtest)"
@@ -209,8 +234,14 @@ install_speedtest_snap() {
   fi
 
   export DEBIAN_FRONTEND=noninteractive
+  if autoscript_package_installed snapd; then
+    snapd_was_installed="true"
+  fi
   if ! command -v snap >/dev/null 2>&1; then
-    apt-get install -y snapd || die "Gagal install snapd."
+    apt_get_with_lock_retry install -y snapd || die "Gagal install snapd."
+    if [[ "${snapd_was_installed}" != "true" ]]; then
+      autoscript_package_mark_owned snapd
+    fi
   fi
 
   systemctl enable --now snapd.socket >/dev/null 2>&1 || true

@@ -2,5 +2,5 @@
 # shellcheck shell=bash
 
 manage_menu_domain_render() {
-  return 0
+  domain_control_menu "$@"
 }

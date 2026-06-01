@@ -588,7 +588,7 @@ func handleClient(conn net.Conn, cfg *config, registry *connectionRegistry, ctl 
 	wsr := bufio.NewReader(conn)
 	wsw := wsproxy.NewWSWriter(conn)
 
-	headers, pathOnly, accept, err := wsproxy.ReadHandshake(conn, cfg.handshakeTimeout, cfg.path)
+	headers, pathOnly, accept, err := wsproxy.ReadHandshake(wsr, conn, cfg.handshakeTimeout, cfg.path)
 	if err != nil {
 		if hs, ok := err.(*wsproxy.HandshakeError); ok {
 			wsproxy.SendHTTPError(conn, hs.Code, hs.Reason)

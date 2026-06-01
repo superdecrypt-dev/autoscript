@@ -36,7 +36,7 @@ tools_menu() {
       2) tools_warp_tier_menu ;;
       3|license|license-guard) run_action "License Guard" autoscript_license_status_menu ;;
       4|backup|restore|backup-restore) run_action "Backup/Restore" backup_restore_menu ;;
-      5|uninstall) run_action "Uninstall" autoscript_uninstall_menu ;;
+      5|uninstall) autoscript_uninstall_menu ;;
       0|kembali|k|back|b) break ;;
       *) warn "Pilihan tidak valid" ; sleep 1 ;;
     esac
@@ -108,7 +108,7 @@ main_menu() {
       10|security) run_action "Security" fail2ban_menu ;;
       11|maintenance|maint) run_action "Maintenance" maintenance_menu ;;
       12|analytics|traffic) run_action "Traffic" traffic_analytics_menu ;;
-      13|tools) run_action "Tools" tools_menu ;;
+      13|tools) tools_menu ;;
       0|kembali|k|back|b) exit 0 ;;
       *) invalid_choice ;;
     esac

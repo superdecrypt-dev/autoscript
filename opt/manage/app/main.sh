@@ -2,13 +2,14 @@
 
 main() {
   need_root
-  if ! manage_license_guard_preflight "${1:-}"; then
+  local action="${1:-}"
+  if ! manage_license_guard_preflight "${action}"; then
     return 1
   fi
   init_runtime_dirs
   ensure_account_quota_dirs
 
-  case "${1:-}" in
+  case "${action}" in
     __apply-ssh-network)
       if ! declare -F ssh_network_runtime_apply_now >/dev/null 2>&1; then
         warn "Hidden apply SSH Network tidak tersedia."
@@ -42,6 +43,11 @@ main() {
       return 1
       ;;
   esac
+
+  if [[ -n "${action}" ]]; then
+    manage_router_dispatch "${action}" "${@:2}"
+    return $?
+  fi
 
   main_menu
 }

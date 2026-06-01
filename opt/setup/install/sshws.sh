@@ -90,7 +90,7 @@ sshws_runtime_session_stale_sec_value() {
 sshws_handshake_timeout_sec_value() {
   local value="${SSHWS_HANDSHAKE_TIMEOUT_SEC:-10}"
   [[ "${value}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "SSHWS_HANDSHAKE_TIMEOUT_SEC harus angka positif (got: ${value})."
-  python3 - <<'PY' "${value}"
+  if ! python3 - <<'PY' "${value}"
 import sys
 try:
     value = float(sys.argv[1])
@@ -100,7 +100,9 @@ if value <= 0:
     raise SystemExit(1)
 print(f"{value:g}")
 PY
-  [[ $? -eq 0 ]] || die "SSHWS_HANDSHAKE_TIMEOUT_SEC harus lebih besar dari 0 (got: ${value})."
+  then
+    die "SSHWS_HANDSHAKE_TIMEOUT_SEC harus lebih besar dari 0 (got: ${value})."
+  fi
 }
 
 write_sshws_runtime_env() {
@@ -184,7 +186,8 @@ install_sshws_stack() {
     "/etc/systemd/system/sshws-proxy.service" \
     0644 \
     "SSHWS_PROXY_PORT=${SSHWS_PROXY_PORT}" \
-    "SSHWS_DROPBEAR_PORT=${SSHWS_DROPBEAR_PORT}"
+    "SSHWS_DROPBEAR_PORT=${SSHWS_DROPBEAR_PORT}" \
+    "SSHWS_HANDSHAKE_TIMEOUT_SEC=$(sshws_handshake_timeout_sec_value)"
 
   systemctl daemon-reload
   service_enable_restart_checked sshws-dropbear || die "Gagal mengaktifkan sshws-dropbear."

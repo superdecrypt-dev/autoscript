@@ -2525,14 +2525,27 @@ def _ssh_traffic_enforcement_ready() -> bool:
 
 def _ssh_traffic_scope_label() -> str:
     if _ssh_traffic_enforcement_ready():
-        return "SSHWS only"
-    return "Metadata only (SSHWS not installed)"
+        return "Unified SSH QAC"
+    return "Metadata only (SSH runtime not installed)"
 
 
 def _ssh_traffic_scope_note() -> str:
     if _ssh_traffic_enforcement_ready():
-        return "Quota/IP-login/speed berlaku pada jalur SSHWS; native SSH port 22 tidak dihitung atau di-throttle."
-    return "SSHWS belum terpasang; quota/IP-login/speed SSH masih metadata dan native SSH port 22 tidak dihitung atau di-throttle."
+        provider = _edge_runtime_get_env("EDGE_PROVIDER").strip().lower()
+        if provider == "go":
+            return (
+                "Quota, speed limit, dan IP/Login limit berlaku sebagai satu sistem SSH pada SSH WS, "
+                "SSH SSL/TLS, dan SSH Direct selama transport melewati Edge Gateway aktif. Pada provider go, "
+                "trafik SSH SSL/TLS publik mengikuti jalur backend SSH klasik setelah terminasi TLS, sedangkan "
+                "SSH WS memakai limiter token-aware milik sshws-proxy. Native sshd port 22 tetap di luar scope "
+                "traffic enforcement."
+            )
+        return (
+            "Quota, speed limit, dan IP/Login limit berlaku sebagai satu sistem SSH pada SSH WS, SSH SSL/TLS, "
+            "dan SSH Direct selama transport melewati Edge Gateway aktif. Native sshd port 22 tetap di luar "
+            "scope traffic enforcement."
+        )
+    return "SSH runtime belum terpasang; quota/IP-login/speed SSH masih metadata dan native sshd port 22 tidak dihitung atau di-throttle."
 
 
 def _ssh_normalize_state_payload(

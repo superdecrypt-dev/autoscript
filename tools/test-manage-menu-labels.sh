@@ -5,21 +5,20 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd 
 cd "${ROOT_DIR}"
 
 legacy_patterns=(
-  'ui_menu_screen_begin "13\) Tools'
-  'ui_menu_screen_begin "12\) Traffic'
-  'ui_menu_screen_begin "11\) Maintenance'
-  'ui_menu_screen_begin "10\) Security'
-  'ui_menu_screen_begin "9\) Speedtest'
-  'ui_menu_screen_begin "8\) Domain Control'
-  'ui_menu_screen_begin "3\) Xray QAC'
-  'echo "12\) Traffic >'
-  'echo "9\) Speedtest >'
-  'echo "8\) Domain Control >'
-  'echo "11\) Maintenance >'
-  'base="13\) Tools > WARP Tier"'
-  'base="5\) Xray Network'
-  'base="5\) Xray Network > WARP Controls > WARP Tier"'
-  'menu 7 kapan saja'
+  'ui_menu_screen_begin "10\) Tools'
+  'ui_menu_screen_begin "8\) Traffic'
+  'ui_menu_screen_begin "7\) Maintenance'
+  'ui_menu_screen_begin "6\) Security'
+  'ui_menu_screen_begin "5\) Speedtest'
+  'ui_menu_screen_begin "4\) Domain Control'
+  'ui_menu_screen_begin "2\) Xray QAC'
+  'echo "8\) Traffic >'
+  'echo "5\) Speedtest >'
+  'echo "4\) Domain Control >'
+  'echo "7\) Maintenance >'
+  'local base="3\) Xray Network"'
+  'local base="10\) Tools > WARP Tier"'
+  'base="3\) Xray Network > WARP Controls > WARP Tier"'
 )
 
 for pattern in "${legacy_patterns[@]}"; do
@@ -30,23 +29,22 @@ for pattern in "${legacy_patterns[@]}"; do
 done
 
 required_patterns=(
-  'ui_menu_screen_begin "10\) Tools"'
-  'ui_menu_screen_begin "8\) Traffic"'
-  'ui_menu_screen_begin "7\) Maintenance"'
-  'ui_menu_screen_begin "6\) Security"'
-  'ui_menu_screen_begin "5\) Speedtest"'
-  'ui_menu_screen_begin "4\) Domain Control'
-  'ui_menu_screen_begin "2\) Xray QAC"'
-  'echo "8\) Traffic >'
-  'echo "5\) Speedtest >'
-  'echo "4\) Domain Control >'
-  'echo "7\) Maintenance >'
-  'local base="3\) Xray Network"'
-  'local base="10\) Tools > WARP Tier"'
-  'base="3\) Xray Network > WARP Controls > WARP Tier"'
+  'ui_menu_screen_begin "13\) Tools"'
+  'ui_menu_screen_begin "12\) Traffic"'
+  'ui_menu_screen_begin "11\) Maintenance"'
+  'ui_menu_screen_begin "10\) Security"'
+  'ui_menu_screen_begin "9\) Speedtest"'
+  'ui_menu_screen_begin "8\) Domain Control'
+  'ui_menu_screen_begin "3\) Xray QAC"'
+  'echo "12\) Traffic >'
+  'echo "9\) Speedtest >'
+  'echo "8\) Domain Control >'
+  'echo "11\) Maintenance >'
+  'local base="5\) Xray Network"'
+  'local base="13\) Tools > WARP Tier"'
+  'base="5\) Xray Network > WARP Controls > WARP Tier"'
   '"3\|License Guard"'
   'run_action "License Guard" autoscript_license_status_menu'
-  'menu 6 kapan saja'
 )
 
 for pattern in "${required_patterns[@]}"; do

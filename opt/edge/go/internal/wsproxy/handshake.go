@@ -36,10 +36,12 @@ func PathAllowed(requestPath, expectedPath string) bool {
 	return pathOnly == expectedOnly || strings.HasPrefix(pathOnly, expectedOnly+"/")
 }
 
-func ReadHandshake(conn net.Conn, timeout time.Duration, expectedPath string) (map[string]string, string, string, error) {
+func ReadHandshake(reader *bufio.Reader, conn net.Conn, timeout time.Duration, expectedPath string) (map[string]string, string, string, error) {
 	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 	defer conn.SetReadDeadline(time.Time{})
-	reader := bufio.NewReader(conn)
+	if reader == nil {
+		reader = bufio.NewReader(conn)
+	}
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
