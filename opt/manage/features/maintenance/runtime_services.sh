@@ -351,7 +351,7 @@ sshws_probe_result_disp() {
       case "${part1:-0}" in
         101) echo "OK (HTTP 101 ${part2:-})" ;;
         301|302|307|308) echo "WARN (HTTP ${part1} ${part2:-redirect})" ;;
-        401|403) echo "FAIL (HTTP ${part1} ${part2:-probe-rejected})" ;;
+        401|403) echo "WARN (HTTP ${part1} ${part2:-probe-rejected})" ;;
         *) echo "FAIL (HTTP ${part1:-0} ${part2:-})" ;;
       esac
       ;;
@@ -487,7 +487,7 @@ sshws_diagnostics_menu() {
     echo "  - HTTP 101 menandakan chain SSH WS sehat, termasuk probe path sintetis."
     echo "  - HTTP 502 biasanya berarti backend internal belum siap."
     echo "  - HTTP 301/308 pada port 80 normal jika force-HTTPS aktif."
-    echo "  - HTTP 401/403 berarti probe sintetis ditolak; cek ws-proxy path/auth flow."
+    echo "  - HTTP 401/403 berarti probe sintetis mencapai gateway tetapi ditolak auth/path."
     hr
     echo "  1) Refresh"
     echo "  2) Combined SSH WS Logs"

@@ -2808,34 +2808,8 @@ xray_restart_checked() {
 }
 
 xray_restart_checked_with_preflight() {
-  local ok=1 f
-
-  if have_cmd jq; then
-    for f in \
-      "${XRAY_LOG_CONF}" \
-      "${XRAY_API_CONF}" \
-      "${XRAY_DNS_CONF}" \
-      "${XRAY_INBOUNDS_CONF}" \
-      "${XRAY_OUTBOUNDS_CONF}" \
-      "${XRAY_ROUTING_CONF}" \
-      "${XRAY_POLICY_CONF}" \
-      "${XRAY_STATS_CONF}"; do
-      if [[ ! -f "${f}" ]]; then
-        warn "Konfigurasi Xray tidak ditemukan: ${f}"
-        ok=0
-        continue
-      fi
-      if ! jq -e . "${f}" >/dev/null 2>&1; then
-        warn "JSON Xray tidak valid: ${f}"
-        ok=0
-      fi
-    done
-  else
-    warn "jq tidak tersedia, skip validasi JSON Xray sebelum restart."
-  fi
-
-  if (( ok != 1 )); then
-    warn "Preflight konfigurasi Xray gagal. Restart dibatalkan."
+  if ! xray_confdir_required_files_check; then
+    warn "Preflight konfigurasi Xray gagal: file conf.d wajib belum lengkap."
     return 1
   fi
 
@@ -3673,11 +3647,16 @@ check_nginx_config() {
 }
 
 check_xray_config_json() {
-  if ! have_cmd jq; then
-    warn "jq tidak tersedia, lewati validasi JSON"
-    return 0
+  if ! xray_confdir_required_files_check; then
+    die "Konfigurasi Xray (conf.d) tidak lengkap."
   fi
+  if ! xray_confdir_syntax_test; then
+    die "Konfigurasi Xray (conf.d) tidak lolos xray -test."
+  fi
+  log "Xray conf.d syntax: OK"
+}
 
+xray_confdir_required_files_check() {
   local ok=1 f
   for f in \
     "${XRAY_LOG_CONF}" \
@@ -3691,16 +3670,9 @@ check_xray_config_json() {
     if [[ ! -f "${f}" ]]; then
       warn "Konfigurasi tidak ditemukan: ${f}"
       ok=0
-      continue
-    fi
-    if ! jq -e . "${f}" >/dev/null; then
-      warn "JSON tidak valid: ${f}"
-      ok=0
     fi
   done
-
-  (( ok == 1 )) || die "Konfigurasi Xray (conf.d) tidak lengkap / invalid."
-  log "Xray conf.d JSON: OK"
+  (( ok == 1 ))
 }
 
 xray_confdir_syntax_test() {

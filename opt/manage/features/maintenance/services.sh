@@ -570,6 +570,25 @@ edge_runtime_socket_listening() {
   ss -lnt 2>/dev/null | grep -Eq "(^|[[:space:]])[^[:space:]]*:${port}([[:space:]]|$)"
 }
 
+edge_runtime_wait_socket_listening() {
+  local port="${1:-0}"
+  local timeout="${2:-10}"
+  local checks i
+  [[ "${port}" =~ ^[0-9]+$ ]] || return 1
+  have_cmd ss || return 0
+  checks=$(( timeout * 2 ))
+  if (( checks < 1 )); then
+    checks=1
+  fi
+  for (( i = 0; i < checks; i++ )); do
+    if edge_runtime_socket_listening "${port}"; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  edge_runtime_socket_listening "${port}"
+}
+
 edge_runtime_post_restart_health_check() {
   local svc provider active http_ports tls_ports http_backend http_tls_backend ssh_backend tls_backend_required
   local backend_http_port backend_http_tls_port backend_ssh_port
@@ -598,26 +617,26 @@ edge_runtime_post_restart_health_check() {
 
   local port
   for port in ${http_ports}; do
-    if ! edge_runtime_socket_listening "${port}"; then
+    if ! edge_runtime_wait_socket_listening "${port}" 12; then
       warn "Port HTTP publik ${port} belum listening setelah restart edge."
       return 1
     fi
   done
   for port in ${tls_ports}; do
-    if ! edge_runtime_socket_listening "${port}"; then
+    if ! edge_runtime_wait_socket_listening "${port}" 12; then
       warn "Port TLS publik ${port} belum listening setelah restart edge."
       return 1
     fi
   done
-  if ! edge_runtime_socket_listening "${backend_http_port}"; then
+  if ! edge_runtime_wait_socket_listening "${backend_http_port}" 12; then
     warn "Backend HTTP ${http_backend} belum listening setelah restart edge."
     return 1
   fi
-  if [[ "${tls_backend_required}" == "true" ]] && ! edge_runtime_socket_listening "${backend_http_tls_port}"; then
+  if [[ "${tls_backend_required}" == "true" ]] && ! edge_runtime_wait_socket_listening "${backend_http_tls_port}" 12; then
     warn "Backend HTTPS ${http_tls_backend} belum listening setelah restart edge."
     return 1
   fi
-  if ! edge_runtime_socket_listening "${backend_ssh_port}"; then
+  if ! edge_runtime_wait_socket_listening "${backend_ssh_port}" 12; then
     warn "Backend SSH ${ssh_backend} belum listening setelah restart edge."
     return 1
   fi
