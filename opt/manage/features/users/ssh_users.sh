@@ -1676,8 +1676,9 @@ ssh_collect_candidate_users() {
 
   while IFS= read -r username; do
     [[ -n "${username}" ]] || continue
+    username="${username%@ssh.json}"
     username="${username%.json}"
-    username="${username%@ssh}"
+    ssh_username_valid "${username}" || continue
     [[ -n "${username}" ]] || continue
     if ssh_add_txn_linux_pending_contains "${username}"; then
       continue
@@ -1691,8 +1692,9 @@ ssh_collect_candidate_users() {
 
   while IFS= read -r name; do
     [[ -n "${name}" ]] || continue
+    name="${name%@ssh.txt}"
     name="${name%.txt}"
-    name="${name%@ssh}"
+    ssh_username_valid "${name}" || continue
     [[ -n "${name}" ]] || continue
     if ssh_add_txn_linux_pending_contains "${name}"; then
       continue
@@ -1706,8 +1708,9 @@ ssh_collect_candidate_users() {
 
   while IFS= read -r name; do
     [[ -n "${name}" ]] || continue
+    name="${name%@ssh.pass}"
     name="${name%.pass}"
-    name="${name%@ssh}"
+    ssh_username_valid "${name}" || continue
     [[ -n "${name}" ]] || continue
     if ssh_add_txn_linux_pending_contains "${name}"; then
       continue
@@ -1717,11 +1720,12 @@ ssh_collect_candidate_users() {
     fi
     seen_users["${name}"]=1
     printf '%s\n' "${name}"
-  done < <(find "${SSH_ACCOUNT_DIR}" -maxdepth 1 -type f -name '*.txt' -printf '%f\n' 2>/dev/null | sort -u)
+  done < <(find "${SSH_ACCOUNT_DIR}" -maxdepth 1 -type f -name '*.pass' -printf '%f\n' 2>/dev/null | sort -u)
 
   if [[ "${include_linux}" == "true" ]]; then
     while IFS= read -r name; do
       [[ -n "${name}" ]] || continue
+      ssh_username_valid "${name}" || continue
       if ssh_add_txn_linux_pending_contains "${name}"; then
         continue
       fi

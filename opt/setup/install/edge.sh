@@ -145,6 +145,22 @@ edge_public_ports_words() {
   printf '%s\n' "${csv//,/ }"
 }
 
+edge_firewall_allow_public_tcp_ports() {
+  command -v ufw >/dev/null 2>&1 || return 0
+  ufw status 2>/dev/null | grep -qi '^Status:[[:space:]]*active' || return 0
+
+  local port
+  local -A seen=()
+  for port in \
+    $(edge_public_ports_words "$(edge_public_http_ports_csv)") \
+    $(edge_public_ports_words "$(edge_public_tls_ports_csv)"); do
+    [[ "${port}" =~ ^[0-9]+$ ]] || continue
+    [[ -z "${seen["${port}"]+x}" ]] || continue
+    seen["${port}"]=1
+    ufw allow "${port}/tcp" >/dev/null 2>&1 || warn "Gagal membuka UFW untuk TCP ${port}."
+  done
+}
+
 edge_render_nginx_stream_servers() {
   local ports_csv backend_var
   case "${1:-}" in
@@ -477,5 +493,6 @@ install_edge_provider_stack() {
   if ! edge_runtime_activate_requested; then
     warn "Edge belum diaktifkan. Set EDGE_ACTIVATE_RUNTIME=true bila ingin mengaktifkan."
   fi
+  edge_firewall_allow_public_tcp_ports
   return 0
 }
