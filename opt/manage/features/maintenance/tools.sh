@@ -451,6 +451,8 @@ autoscript_uninstall_purge_packages() {
   if autoscript_uninstall_package_owned nodejs && autoscript_uninstall_pkg_installed nodejs; then
     installed+=("nodejs")
   fi
+  rm -rf /opt/nodejs >/dev/null 2>&1 || true
+  rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack >/dev/null 2>&1 || true
   if autoscript_uninstall_snapd_safe_to_purge && autoscript_uninstall_pkg_installed snapd; then
     installed+=("snapd")
   fi

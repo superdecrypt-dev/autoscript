@@ -2,6 +2,9 @@
 # Bootstrap/install groundwork module for setup runtime.
 
 AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR="${AUTOSCRIPT_PACKAGE_OWNERSHIP_DIR:-/etc/autoscript/package-ownership}"
+AUTOSCRIPT_NODEJS_ROOT="${AUTOSCRIPT_NODEJS_ROOT:-/opt/nodejs}"
+AUTOSCRIPT_NODEJS_DIST_BASE_URL="${AUTOSCRIPT_NODEJS_DIST_BASE_URL:-https://nodejs.org/dist/latest}"
+AUTOSCRIPT_NODEJS_SYMLINK_DIR="${AUTOSCRIPT_NODEJS_SYMLINK_DIR:-/usr/local/bin}"
 
 autoscript_package_installed() {
   local pkg="${1:-}"
@@ -156,40 +159,75 @@ node_version_satisfies_portal_build() {
   return 1
 }
 
-ensure_nodejs_runtime_for_account_portal() {
-  local nodejs_was_installed="false"
+nodejs_official_linux_arch() {
+  local machine
+  machine="$(uname -m 2>/dev/null || true)"
+  case "${machine}" in
+    x86_64|amd64)
+      printf 'x64\n'
+      ;;
+    aarch64|arm64)
+      printf 'arm64\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
+install_nodejs_official_current_binary() {
+  local arch index_html archive_name archive_url tmp_dir archive_file install_dir
+
+  arch="$(nodejs_official_linux_arch)" \
+    || die "Arsitektur Node.js official binary tidak didukung: $(uname -m 2>/dev/null || echo unknown). Didukung: linux-x64 dan linux-arm64."
+
+  tmp_dir="$(mktemp -d)" || die "Gagal membuat temporary dir untuk download Node.js."
+  archive_file="${tmp_dir}/nodejs.tar.gz"
+  install_dir="${AUTOSCRIPT_NODEJS_ROOT}/current"
+
+  index_html="$(curl -fsSL "${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/")" \
+    || die "Gagal membaca index Node.js official download: ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/"
+  archive_name="$(
+    printf '%s\n' "${index_html}" \
+      | sed -n "s#.*href=\"[^\"]*/\\(node-v[^\"]*-linux-${arch}\\.tar\\.gz\\)\".*#\\1#p" \
+      | head -n 1
+  )"
+  [[ -n "${archive_name}" ]] || die "Archive Node.js official linux-${arch} tidak ditemukan di ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/."
+
+  archive_url="${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/${archive_name}"
+  ok "Download Node.js official current (${archive_name})..."
+  curl -fL --retry 3 --retry-delay 2 -o "${archive_file}" "${archive_url}" \
+    || die "Gagal download Node.js official binary: ${archive_url}"
+
+  rm -rf "${install_dir}"
+  install -d -m 0755 "${install_dir}"
+  tar -xzf "${archive_file}" -C "${install_dir}" --strip-components=1 \
+    || die "Gagal extract Node.js official binary."
+
+  install -d -m 0755 "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}"
+  ln -sfn "${install_dir}/bin/node" "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}/node"
+  ln -sfn "${install_dir}/bin/npm" "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}/npm"
+  ln -sfn "${install_dir}/bin/npx" "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}/npx"
+  if [[ -x "${install_dir}/bin/corepack" ]]; then
+    ln -sfn "${install_dir}/bin/corepack" "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}/corepack"
+  fi
+
+  rm -rf "${tmp_dir}"
+  hash -r || true
+}
+
+ensure_nodejs_runtime_for_account_portal() {
   if node_version_satisfies_portal_build; then
     ok "Node.js siap untuk build portal React: $(node -v) / npm $(npm -v)"
     return 0
   fi
 
-  ok "Menyiapkan Node.js untuk build portal React..."
+  ok "Menyiapkan Node.js official current untuk build portal React..."
   export DEBIAN_FRONTEND=noninteractive
   ensure_dpkg_consistent
-  if autoscript_package_installed nodejs; then
-    nodejs_was_installed="true"
-  fi
-  apt_get_with_lock_retry install -y ca-certificates curl gpg
+  apt_get_with_lock_retry install -y ca-certificates curl tar
 
-  install -d -m 0755 /etc/apt/keyrings
-  if [[ ! -s /etc/apt/keyrings/nodesource.gpg ]]; then
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-      || die "Gagal memasang keyring NodeSource."
-    chmod 0644 /etc/apt/keyrings/nodesource.gpg || true
-  fi
-
-  cat > /etc/apt/sources.list.d/nodesource.list <<'EOF'
-deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main
-EOF
-
-  apt_get_with_lock_retry update -y
-  apt_get_with_lock_retry install -y nodejs
-  if [[ "${nodejs_was_installed}" != "true" ]]; then
-    autoscript_package_mark_owned nodejs
-  fi
-  hash -r || true
+  install_nodejs_official_current_binary
 
   node_version_satisfies_portal_build \
     || die "Node.js untuk build portal React tidak memenuhi syarat. Dibutuhkan >=20.19 atau >=22.12, terdeteksi: $(node -v 2>/dev/null || echo 'tidak ada')."
