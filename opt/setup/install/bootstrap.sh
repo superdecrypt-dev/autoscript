@@ -185,24 +185,33 @@ install_nodejs_official_current_binary() {
   archive_file="${tmp_dir}/nodejs.tar.gz"
   install_dir="${AUTOSCRIPT_NODEJS_ROOT}/current"
 
-  index_html="$(curl -fsSL "${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/")" \
-    || die "Gagal membaca index Node.js official download: ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/"
+  if ! index_html="$(curl -fsSL "${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/")"; then
+    rm -rf "${tmp_dir}"
+    die "Gagal membaca index Node.js official download: ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/"
+  fi
   archive_name="$(
     printf '%s\n' "${index_html}" \
       | sed -n "s#.*href=\"[^\"]*/\\(node-v[^\"]*-linux-${arch}\\.tar\\.gz\\)\".*#\\1#p" \
       | head -n 1
   )"
-  [[ -n "${archive_name}" ]] || die "Archive Node.js official linux-${arch} tidak ditemukan di ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/."
+  if [[ -z "${archive_name}" ]]; then
+    rm -rf "${tmp_dir}"
+    die "Archive Node.js official linux-${arch} tidak ditemukan di ${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/."
+  fi
 
   archive_url="${AUTOSCRIPT_NODEJS_DIST_BASE_URL}/${archive_name}"
   ok "Download Node.js official current (${archive_name})..."
-  curl -fL --retry 3 --retry-delay 2 -o "${archive_file}" "${archive_url}" \
-    || die "Gagal download Node.js official binary: ${archive_url}"
+  if ! curl -fL --retry 3 --retry-delay 2 -o "${archive_file}" "${archive_url}"; then
+    rm -rf "${tmp_dir}"
+    die "Gagal download Node.js official binary: ${archive_url}"
+  fi
 
   rm -rf "${install_dir}"
   install -d -m 0755 "${install_dir}"
-  tar -xzf "${archive_file}" -C "${install_dir}" --strip-components=1 \
-    || die "Gagal extract Node.js official binary."
+  if ! tar -xzf "${archive_file}" -C "${install_dir}" --strip-components=1; then
+    rm -rf "${tmp_dir}"
+    die "Gagal extract Node.js official binary."
+  fi
 
   install -d -m 0755 "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}"
   ln -sfn "${install_dir}/bin/node" "${AUTOSCRIPT_NODEJS_SYMLINK_DIR}/node"
@@ -213,6 +222,7 @@ install_nodejs_official_current_binary() {
   fi
 
   rm -rf "${tmp_dir}"
+  tmp_dir=""
   hash -r || true
 }
 

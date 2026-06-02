@@ -416,6 +416,22 @@ autoscript_uninstall_snapd_safe_to_purge() {
   return 0
 }
 
+autoscript_uninstall_nodejs_official_binary_cleanup() {
+  local node_root="${AUTOSCRIPT_NODEJS_ROOT:-/opt/nodejs}"
+  local link="" target=""
+
+  for link in /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack; do
+    [[ -L "${link}" ]] || continue
+    target="$(readlink -f -- "${link}" 2>/dev/null || true)"
+    [[ "${target}" == "${node_root}/"* ]] || continue
+    rm -f -- "${link}" >/dev/null 2>&1 || true
+  done
+
+  if [[ -d "${node_root}" ]]; then
+    rm -rf -- "${node_root}" >/dev/null 2>&1 || true
+  fi
+}
+
 autoscript_uninstall_purge_packages() {
   local -a purge_pkgs=(
     nginx
@@ -451,8 +467,7 @@ autoscript_uninstall_purge_packages() {
   if autoscript_uninstall_package_owned nodejs && autoscript_uninstall_pkg_installed nodejs; then
     installed+=("nodejs")
   fi
-  rm -rf /opt/nodejs >/dev/null 2>&1 || true
-  rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack >/dev/null 2>&1 || true
+  autoscript_uninstall_nodejs_official_binary_cleanup
   if autoscript_uninstall_snapd_safe_to_purge && autoscript_uninstall_pkg_installed snapd; then
     installed+=("snapd")
   fi
