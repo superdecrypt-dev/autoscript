@@ -53,9 +53,10 @@ func ReadHandshake(reader *bufio.Reader, conn net.Conn, timeout time.Duration, e
 	if len(req) < 3 {
 		return nil, "", "", &HandshakeError{Code: 400, Reason: "Bad Request"}
 	}
-	if strings.ToUpper(req[0]) != "GET" {
-		return nil, "", "", &HandshakeError{Code: 405, Reason: "Method Not Allowed"}
-	}
+	// Method pengecekan di-bypass agar proxy menerima PATCH atau method lainnya.
+	// if strings.ToUpper(req[0]) != "GET" {
+	// 	return nil, "", "", &HandshakeError{Code: 405, Reason: "Method Not Allowed"}
+	// }
 	target := req[1]
 	path := target
 	if strings.Contains(target, "://") {
